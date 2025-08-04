@@ -3,7 +3,8 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useSession, signOut } from 'next-auth/react'
-import { Receipt, BarChart3, Users, FileText, LogIn, LogOut, UserPlus, Settings } from 'lucide-react'
+import { useState } from 'react'
+import { Receipt, BarChart3, Users, FileText, LogIn, LogOut, UserPlus, Settings, Menu, X } from 'lucide-react'
 
 const publicNavigation = [
   { name: 'Analysis Dashboard', href: '/dashboard', icon: BarChart3 },
@@ -22,6 +23,7 @@ const adminNavigation = [
 export default function Navigation() {
   const pathname = usePathname()
   const { data: session, status } = useSession()
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
 
   const getAvailableNavigation = () => {
     const nav = [...publicNavigation]
@@ -135,13 +137,103 @@ export default function Navigation() {
           
           {/* Mobile menu button */}
           <div className="sm:hidden flex items-center">
-            <button className="p-2 rounded-lg text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-all duration-200">
-              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
+            <button 
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              className="p-2 rounded-lg text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-all duration-200"
+              aria-label="Toggle mobile menu"
+            >
+              {isMobileMenuOpen ? (
+                <X className="h-6 w-6" />
+              ) : (
+                <Menu className="h-6 w-6" />
+              )}
             </button>
           </div>
         </div>
+        
+        {/* Mobile menu panel */}
+        {isMobileMenuOpen && (
+          <div className="sm:hidden animate-fadeIn">
+            <div className="px-2 pt-2 pb-3 space-y-1 bg-white border-t border-gray-200">
+              {navigation.map((item) => {
+                const Icon = item.icon
+                const isActive = pathname === item.href
+                return (
+                  <Link
+                    key={item.name}
+                    href={item.href}
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className={`group flex items-center px-3 py-2 text-base font-medium rounded-lg transition-all duration-200 ${
+                      isActive
+                        ? 'bg-blue-50 text-blue-700 shadow-sm'
+                        : 'text-gray-600 hover:text-blue-700 hover:bg-blue-50'
+                    }`}
+                  >
+                    <Icon className={`h-5 w-5 mr-3 transition-all duration-200 ${
+                      isActive ? 'text-blue-600' : 'text-gray-400 group-hover:text-blue-600'
+                    }`} />
+                    {item.name}
+                  </Link>
+                )
+              })}
+              
+              {/* Mobile Auth Section */}
+              <div className="pt-4 pb-3 border-t border-gray-200">
+                {status === 'loading' ? (
+                  <div className="flex items-center px-3 py-2">
+                    <div className="animate-spin rounded-full h-5 w-5 border-2 border-blue-600 border-t-transparent"></div>
+                    <span className="text-gray-600 text-sm ml-3">Loading...</span>
+                  </div>
+                ) : session ? (
+                  <div className="space-y-3">
+                    <div className="flex items-center px-3 py-2">
+                      <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center">
+                        <span className="text-white text-sm font-semibold">
+                          {session.user.name?.charAt(0).toUpperCase()}
+                        </span>
+                      </div>
+                      <div className="ml-3">
+                        <p className="text-base font-medium text-gray-900">{session.user.name}</p>
+                        {session.user.role === 'admin' && (
+                          <p className="text-sm text-blue-600 font-medium">Administrator</p>
+                        )}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => {
+                        signOut()
+                        setIsMobileMenuOpen(false)
+                      }}
+                      className="w-full flex items-center px-3 py-2 text-base font-medium text-gray-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-all duration-200"
+                    >
+                      <LogOut className="h-5 w-5 mr-3" />
+                      Sign Out
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <Link
+                      href="/auth/signin"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                      className="w-full flex items-center px-3 py-2 text-base font-medium text-gray-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-all duration-200"
+                    >
+                      <LogIn className="h-5 w-5 mr-3" />
+                      Sign In
+                    </Link>
+                    <Link
+                      href="/auth/signup"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                      className="w-full flex items-center px-3 py-2 text-base font-medium text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 rounded-lg transition-all duration-200"
+                    >
+                      <UserPlus className="h-5 w-5 mr-3" />
+                      Sign Up
+                    </Link>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </nav>
   )

@@ -19,6 +19,7 @@ const receiptSchema = z.object({
     message: 'Payment mode is required',
   }),
   dateTime: z.string().min(1, 'Date and time is required'),
+  addToWhatsApp: z.boolean().optional(),
 })
 
 type ReceiptFormData = z.infer<typeof receiptSchema>
@@ -48,11 +49,13 @@ export default function ReceiptEntryForm() {
     defaultValues: {
       paymentMode: 'cash', // Default to cash payment
       dateTime: formatDateTimeLocalIST(), // Current date-time in IST format
+      addToWhatsApp: false, // Default WhatsApp checkbox to unchecked
     },
   })
 
   const selectedBuilding = watch('buildingNo')
   const selectedFlat = watch('flatNo')
+  const contactNo = watch('contactNo')
 
   // Fetch buildings and residents on component mount
   useEffect(() => {
@@ -111,14 +114,72 @@ export default function ReceiptEntryForm() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          ...data,
+          buildingNo: data.buildingNo,
+          flatNo: data.flatNo,
           amount: Number(data.amount),
+          name: data.name,
+          contactNo: data.contactNo,
+          paymentMode: data.paymentMode,
           dateTime: new Date(data.dateTime).toISOString(),
         }),
       })
 
       if (response.ok) {
-        alert('Receipt saved successfully!')
+        
+        // Handle WhatsApp group addition if checkbox is checked and phone number exists
+        if (data.addToWhatsApp && data.contactNo && data.contactNo.trim()) {
+          // Format phone number for WhatsApp (add +91 if needed)
+          let formattedPhone = data.contactNo.replace(/\D/g, '') // Remove non-digits
+          if (formattedPhone.startsWith('0')) {
+            formattedPhone = '91' + formattedPhone.substring(1) // Replace leading 0 with 91
+          } else if (!formattedPhone.startsWith('91') && formattedPhone.length === 10) {
+            formattedPhone = '91' + formattedPhone // Add 91 prefix for 10-digit numbers
+          }
+          
+          console.log('Formatted phone number:', formattedPhone) // Debug log
+          
+          // Group invite link
+          const groupInviteLink = 'https://chat.whatsapp.com/FoALq8qPMS9BgoHPJGqRsv'
+          
+          // Create personalized message for personal chat
+          const contributorName = data.name || 'मित्रा'
+          const amount = Number(data.amount)
+          const message = `🙏 गणपती बाप्पा मोरया! ${contributorName}!
+
+तुमच्या ₹${amount} च्या उदार योगदानाबद्दल मनापासून धन्यवाद! 🏠✨
+
+🎉 आमच्या गणेशोत्सव WhatsApp समुदायात सामील व्हा आणि आनंद वाटा:
+• 📸 कार्यक्रमाचे फोटो आणि व्हिडिओ
+• 🎵 सांस्कृतिक कार्यक्रमाची वेळ  
+• 🍽️ प्रसाद वितरणाची माहिती
+• 🎭 आरती आणि पूजेची वेळ
+• 🤝 समुदायाची सर्व अपडेट्स
+
+आमच्या गटात सामील व्हा: ${groupInviteLink}
+
+🌟 एकत्र उत्सव साजरा करूया!
+गणपती बाप्पा मोरया! मंगलमूर्ती मोरया! 🐘🙏✨`
+          
+          // Create WhatsApp URL to open personal chat with pre-filled message
+          const whatsappChatUrl = `https://wa.me/${formattedPhone}?text=${encodeURIComponent(message)}`
+          
+          const userConfirmed = confirm(
+            `✅ पावती यशस्वीरित्या जतन झाली!\n\n` +
+            `📱 ${contributorName} ला गणेशोत्सव WhatsApp गटात आमंत्रित करायचे?\n\n` +
+            `'ओके' दाबा आणि व्यक्तिशः संदेश पाठवा.\n` +
+            `संदेश तयार आहे, फक्त पाहून पाठवा!`
+          )
+          
+          if (userConfirmed) {
+            // Open WhatsApp chat with pre-filled message
+            window.open(whatsappChatUrl, '_blank')
+          } else {
+            alert('✅ पावती जतन झाली!')
+          }
+        } else {
+          alert('✅ पावती यशस्वीरित्या जतन झाली!')
+        }
+
         reset({
           buildingNo: '',
           flatNo: '',
@@ -130,11 +191,11 @@ export default function ReceiptEntryForm() {
         })
       } else {
         const errorData = await response.json()
-        alert(`Error: ${errorData.error || 'Failed to save receipt'}`)
+        alert(`त्रुटी: ${errorData.error || 'पावती जतन करताना त्रुटी'}`)
       }
     } catch (error) {
       console.error('Error saving receipt:', error)
-      alert('Error saving receipt. Please try again.')
+      alert('पावती जतन करताना त्रुटी. कृपया पुन्हा प्रयत्न करा.')
     } finally {
       setIsLoading(false)
     }
@@ -245,6 +306,25 @@ export default function ReceiptEntryForm() {
             className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 font-medium"
             placeholder="Auto-populated or enter manually"
           />
+          
+          {/* WhatsApp Group Checkbox */}
+          {contactNo && contactNo.trim() && (
+            <div className="mt-3 flex items-center space-x-2 p-3 bg-green-50 border border-green-200 rounded-lg">
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  {...register('addToWhatsApp')}
+                  className="h-4 w-4 text-green-600 focus:ring-green-500 border-green-300 rounded"
+                />
+                <label htmlFor="addToWhatsApp" className="text-sm font-medium text-green-800">
+                  Add to Ganeshotsav WhatsApp group?
+                </label>
+              </div>
+              <div className="flex-1 text-xs text-green-600">
+                📱 Get updates and connect with the community
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Date and Time */}

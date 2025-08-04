@@ -30,21 +30,36 @@ model Resident {
 }
 
 model Receipt {
-  id          Int      @id @default(autoincrement())
-  buildingNo  String   @map("building_no")
-  flatNo      String   @map("flat_no")
-  amount      Decimal  @db.Decimal(10, 2)
-  name        String?
-  contactNo   String?  @map("contact_no")
-  paymentMode String   @default("cash") @map("payment_mode") // "cash" or "online"
-  dateTime    DateTime @default(now()) @map("date_time")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  id              Int      @id @default(autoincrement())
+  buildingNo      String   @map("building_no")
+  flatNo          String   @map("flat_no")
+  amount          Decimal  @db.Decimal(10, 2)
+  name            String?
+  contactNo       String?  @map("contact_no")
+  paymentMode     String   @default("cash") @map("payment_mode") // "cash" or "online"
+  dateTime        DateTime @default(now()) @map("date_time")
+  addToWhatsApp   Boolean  @default(false) @map("add_to_whatsapp") // New field for WhatsApp group feature
+  whatsAppStatus  String?  @map("whatsapp_status") // "added", "invited", "failed", etc.
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
 
   // Relations
   resident    Resident @relation(fields: [buildingNo, flatNo], references: [buildingNo, flatNo])
 
   @@map("receipts")
+}
+
+// WhatsApp Group Configuration
+model WhatsAppConfig {
+  id          Int      @id @default(autoincrement())
+  groupName   String   @map("group_name")
+  groupId     String?  @map("group_id") // WhatsApp Group ID
+  inviteLink  String?  @map("invite_link") // Group invite link
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("whatsapp_configs")
 }
 
 // Authentication models
