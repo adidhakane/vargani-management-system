@@ -61,7 +61,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { buildingNo, flatNo, amount, name, contactNo, dateTime, paymentMode, addToWhatsApp } = body
+    const { buildingNo, flatNo, amount, name, contactNo, dateTime, paymentMode } = body
 
     // Validate required fields
     if (!buildingNo || !flatNo || !amount || !dateTime) {
@@ -118,8 +118,6 @@ export async function POST(request: NextRequest) {
         contactNo: contactNo || resident?.contactNo || null,
         dateTime: new Date(dateTime),
         paymentMode: paymentMode || 'cash',
-        // Temporarily comment out addToWhatsApp until migration is applied
-        // addToWhatsApp: addToWhatsApp || false,
       },
       include: {
         resident: true,
