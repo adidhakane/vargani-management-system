@@ -184,14 +184,15 @@ export async function POST(request: NextRequest) {
         
         successCount++
         console.log(`✅ Added: Building ${resident.buildingNo}, Flat ${resident.flatNo} - ${resident.name}`)
-      } catch (error: any) {
-        if (error.code === 'P2002') {
+      } catch (error: unknown) {
+        if (error && typeof error === 'object' && 'code' in error && error.code === 'P2002') {
           // Unique constraint violation - resident already exists
           skipCount++
           console.log(`⚠️  Skipped: Building ${resident.buildingNo}, Flat ${resident.flatNo} - ${resident.name} (already exists)`)
         } else {
           errorCount++
-          const errorMsg = `Error adding Building ${resident.buildingNo}, Flat ${resident.flatNo} - ${resident.name}: ${error.message}`
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+          const errorMsg = `Error adding Building ${resident.buildingNo}, Flat ${resident.flatNo} - ${resident.name}: ${errorMessage}`
           errors.push(errorMsg)
           console.error(`❌ ${errorMsg}`)
         }
@@ -229,12 +230,13 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(result)
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('💥 Migration failed:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
     return NextResponse.json(
       { 
         error: 'Migration failed', 
-        details: error.message,
+        details: errorMessage,
         success: false 
       },
       { status: 500 }
