@@ -141,7 +141,7 @@ export default function ReceiptEntryForm() {
 👤 *Name*: ${watch('name') || 'N/A'}
 
 कृपया हमारे गणेशोत्सव WhatsApp ग्रुप में शामिल हों:
-👥 *Group Link*: https://chat.whatsapp.com/your-group-invitation-link
+👥 *Group Link*: https://chat.whatsapp.com/FoALq8qPMS9BgoHPJGqRsv
 
 अधिक जानकारी के लिए संपर्क करें।
 
