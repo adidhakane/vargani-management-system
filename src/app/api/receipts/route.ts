@@ -118,7 +118,8 @@ export async function POST(request: NextRequest) {
         contactNo: contactNo || resident?.contactNo || null,
         dateTime: new Date(dateTime),
         paymentMode: paymentMode || 'cash',
-        addToWhatsApp: addToWhatsApp || false,
+        // Temporarily comment out addToWhatsApp until migration is applied
+        // addToWhatsApp: addToWhatsApp || false,
       },
       include: {
         resident: true,
