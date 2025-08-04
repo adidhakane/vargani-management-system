@@ -3,14 +3,13 @@
 import { useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { useSession } from 'next-auth/react'
-import { BarChart3, Download, Edit2, Trash2, Save, X, TrendingUp, Users, Building, FileText, AlertCircle } from 'lucide-react'
+import { BarChart3, Download, Edit2, Trash2, Save, X, TrendingUp, Users, Building, FileText } from 'lucide-react'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import { getCurrentISTString } from '@/lib/date-utils'
 import { Card, CardHeader, CardContent, CardTitle, CardDescription } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Input, Select } from '@/components/ui/Input'
-import { Alert, LoadingSpinner, Badge } from '@/components/ui/Common'
 
 interface Receipt {
   id: number
@@ -37,6 +36,8 @@ export default function Dashboard() {
   const [buildings, setBuildings] = useState<string[]>([])
   const [receipts, setReceipts] = useState<Receipt[]>([])
   const [totalAmount, setTotalAmount] = useState(0)
+  const [cashAmount, setCashAmount] = useState(0)
+  const [onlineAmount, setOnlineAmount] = useState(0)
   const [isLoading, setIsLoading] = useState(false)
   const [allResidents, setAllResidents] = useState<{ buildingNo: string; flatNo: string; name: string; contactNo?: string }[]>([])
   const [editingId, setEditingId] = useState<number | null>(null)
@@ -97,7 +98,14 @@ export default function Dashboard() {
           setReceipts(sortedReceipts)
           
           const total = receiptsData.reduce((sum: number, receipt: Receipt) => sum + Number(receipt.amount), 0)
+          const cash = receiptsData.reduce((sum: number, receipt: Receipt) => 
+            receipt.paymentMode === 'cash' ? sum + Number(receipt.amount) : sum, 0)
+          const online = receiptsData.reduce((sum: number, receipt: Receipt) => 
+            receipt.paymentMode === 'online' ? sum + Number(receipt.amount) : sum, 0)
+          
           setTotalAmount(total)
+          setCashAmount(cash)
+          setOnlineAmount(online)
         }
       }
     } catch (error) {
@@ -145,6 +153,8 @@ export default function Dashboard() {
       
       setReceipts(remainingFlatsReceipts)
       setTotalAmount(0)
+      setCashAmount(0)
+      setOnlineAmount(0)
     } catch (error) {
       console.error('Error analyzing remaining flats:', error)
       alert('Error analyzing remaining flats')
@@ -257,12 +267,13 @@ export default function Dashboard() {
       
       if (analysisType !== 'remaining-flats') {
         doc.text(`Total Amount: ₹${totalAmount.toFixed(2)}`, 20, 55)
+        doc.text(`Cash: ₹${cashAmount.toFixed(2)} | Online: ₹${onlineAmount.toFixed(2)}`, 20, 65)
       }
       
       // Prepare table data
       const tableColumns = analysisType === 'remaining-flats' 
         ? ['Building No', 'Flat No', 'Resident Name', 'Contact No', 'Status']
-        : ['Building No', 'Flat No', 'Amount (₹)', 'Resident Name', 'Date & Time']
+        : ['Building No', 'Flat No', 'Amount (₹)', 'Payment Mode', 'Resident Name', 'Date & Time']
       
       let tableRows: string[][]
       
@@ -279,6 +290,7 @@ export default function Dashboard() {
           receipt.buildingNo || 'N/A',
           receipt.flatNo || 'N/A',
           `₹${Number(receipt.amount || 0).toFixed(2)}`,
+          receipt.paymentMode === 'cash' ? 'Cash' : 'Online',
           receipt.name || receipt.resident?.name || 'N/A',
           receipt.dateTime ? new Date(receipt.dateTime).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) : 'N/A'
         ])
@@ -287,7 +299,7 @@ export default function Dashboard() {
       // Add table with error handling
       try {
         autoTable(doc, {
-          startY: analysisType !== 'remaining-flats' ? 65 : 55,
+          startY: analysisType !== 'remaining-flats' ? 75 : 55,
           head: [tableColumns],
           body: tableRows,
           styles: { fontSize: 10 },
@@ -297,7 +309,7 @@ export default function Dashboard() {
         console.warn('autoTable failed, using fallback approach:', autoTableError)
         
         // Fallback: Add text manually
-        let yPosition = analysisType !== 'remaining-flats' ? 65 : 55
+        let yPosition = analysisType !== 'remaining-flats' ? 75 : 55
         
         // Add headers
         doc.setFontSize(12)
@@ -383,6 +395,26 @@ export default function Dashboard() {
             </div>
             <div className="text-2xl font-bold text-green-600">₹{totalAmount.toLocaleString()}</div>
             <div className="text-sm text-gray-600">Total Amount</div>
+          </CardContent>
+        </Card>
+
+        <Card hover className="text-center">
+          <CardContent className="pt-6">
+            <div className="inline-flex items-center justify-center w-12 h-12 bg-green-100 rounded-lg mb-4">
+              <span className="text-green-600 font-bold text-lg">💵</span>
+            </div>
+            <div className="text-2xl font-bold text-green-600">₹{cashAmount.toLocaleString()}</div>
+            <div className="text-sm text-gray-600">Cash Payment</div>
+          </CardContent>
+        </Card>
+
+        <Card hover className="text-center">
+          <CardContent className="pt-6">
+            <div className="inline-flex items-center justify-center w-12 h-12 bg-blue-100 rounded-lg mb-4">
+              <span className="text-blue-600 font-bold text-lg">💳</span>
+            </div>
+            <div className="text-2xl font-bold text-blue-600">₹{onlineAmount.toLocaleString()}</div>
+            <div className="text-sm text-gray-600">Online Payment</div>
           </CardContent>
         </Card>
       </div>
@@ -472,8 +504,16 @@ export default function Dashboard() {
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-bold text-gray-900">Analysis Results</h2>
             {analysisType !== 'remaining-flats' && (
-              <div className="text-lg font-semibold text-green-600">
-                Total Amount: ₹{totalAmount.toFixed(2)}
+              <div className="flex flex-col sm:flex-row gap-2 text-right">
+                <div className="text-lg font-semibold text-green-600">
+                  Total: ₹{totalAmount.toFixed(2)}
+                </div>
+                <div className="text-sm text-blue-600">
+                  Cash: ₹{cashAmount.toFixed(2)}
+                </div>
+                <div className="text-sm text-purple-600">
+                  Online: ₹{onlineAmount.toFixed(2)}
+                </div>
               </div>
             )}
           </div>
@@ -491,6 +531,11 @@ export default function Dashboard() {
                   {analysisType !== 'remaining-flats' && (
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Amount
+                    </th>
+                  )}
+                  {analysisType !== 'remaining-flats' && (
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Payment Mode
                     </th>
                   )}
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -527,6 +572,28 @@ export default function Dashboard() {
                           />
                         ) : (
                           `₹${Number(receipt.amount).toFixed(2)}`
+                        )}
+                      </td>
+                    )}
+                    {analysisType !== 'remaining-flats' && (
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {editingId === receipt.id ? (
+                          <select
+                            value={editForm.paymentMode}
+                            onChange={(e) => setEditForm({...editForm, paymentMode: e.target.value})}
+                            className="px-2 py-1 border border-gray-300 rounded"
+                          >
+                            <option value="cash">Cash</option>
+                            <option value="online">Online</option>
+                          </select>
+                        ) : (
+                          <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                            receipt.paymentMode === 'cash' 
+                              ? 'bg-green-100 text-green-800' 
+                              : 'bg-blue-100 text-blue-800'
+                          }`}>
+                            {receipt.paymentMode === 'cash' ? 'Cash' : 'Online'}
+                          </span>
                         )}
                       </td>
                     )}
