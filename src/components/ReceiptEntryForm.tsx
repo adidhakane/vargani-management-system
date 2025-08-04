@@ -10,15 +10,26 @@ import { formatDateTimeLocalIST } from '@/lib/date-utils'
 const receiptSchema = z.object({
   buildingNo: z.string().min(1, 'Building number is required'),
   flatNo: z.string().min(1, 'Flat number is required'),
-  amount: z.string().min(1, 'Amount is required').refine((val) => !isNaN(Number(val)) && Number(val) > 0, {
-    message: 'Amount must be a positive number',
-  }),
+  amount: z.string().optional(),
   name: z.string().optional(),
   contactNo: z.string().optional(),
-  paymentMode: z.enum(['cash', 'online'], {
-    message: 'Payment mode is required',
-  }),
+  paymentMode: z.enum(['cash', 'online']).optional(),
   dateTime: z.string().min(1, 'Date and time is required'),
+}).refine((data) => {
+  // If amount is provided, it must be valid and payment mode is required
+  if (data.amount && data.amount.trim() !== '') {
+    const amountNum = Number(data.amount)
+    if (isNaN(amountNum) || amountNum <= 0) {
+      return false
+    }
+    if (!data.paymentMode) {
+      return false
+    }
+  }
+  return true
+}, {
+  message: 'When amount is entered, it must be a positive number and payment mode is required',
+  path: ['amount']
 })
 
 type ReceiptFormData = z.infer<typeof receiptSchema>
@@ -53,6 +64,8 @@ export default function ReceiptEntryForm() {
 
   const selectedBuilding = watch('buildingNo')
   const selectedFlat = watch('flatNo')
+  const currentAmount = watch('amount')
+  const currentContactNo = watch('contactNo')
 
   // Fetch buildings and residents on component mount
   useEffect(() => {
@@ -102,7 +115,75 @@ export default function ReceiptEntryForm() {
     }
   }, [selectedBuilding, selectedFlat, residents, setValue])
 
+  // WhatsApp functionality
+  const openWhatsAppChat = (contactNo: string) => {
+    // Clean the contact number - remove any non-digit characters
+    const cleanNumber = contactNo.replace(/\D/g, '')
+    
+    // Add country code if not present (assuming India +91)
+    let phoneNumber = cleanNumber
+    if (phoneNumber.length === 10) {
+      phoneNumber = '91' + phoneNumber
+    } else if (phoneNumber.startsWith('91') && phoneNumber.length === 12) {
+      // Already has country code
+    } else if (phoneNumber.startsWith('0') && phoneNumber.length === 11) {
+      // Remove leading 0 and add country code
+      phoneNumber = '91' + phoneNumber.substring(1)
+    }
+
+    // WhatsApp message and group invitation link
+    const message = `🎉 *Ganeshotsav 2025 - Vargani Collection* 🎉
+
+नमस्कार! आपका गणेशोत्सव वर्गणी संग्रह के लिए स्वागत है।
+
+🏠 *Building*: ${selectedBuilding}
+🚪 *Flat*: ${selectedFlat}
+👤 *Name*: ${watch('name') || 'N/A'}
+
+कृपया हमारे गणेशोत्सव WhatsApp ग्रुप में शामिल हों:
+👥 *Group Link*: https://chat.whatsapp.com/your-group-invitation-link
+
+अधिक जानकारी के लिए संपर्क करें।
+
+धन्यवाद! 🙏`
+
+    // Encode the message for URL
+    const encodedMessage = encodeURIComponent(message)
+    
+    // Create WhatsApp URL
+    const whatsappUrl = `https://wa.me/${phoneNumber}?text=${encodedMessage}`
+    
+    // Open WhatsApp in a new tab
+    window.open(whatsappUrl, '_blank')
+    
+    // Show success message
+    alert('📱 WhatsApp चैट खोला गया है! संदेश और ग्रुप लिंक भेजा गया है।')
+    
+    // Reset form after WhatsApp action
+    reset({
+      buildingNo: '',
+      flatNo: '',
+      amount: '',
+      name: '',
+      contactNo: '',
+      paymentMode: 'cash',
+      dateTime: formatDateTimeLocalIST(),
+    })
+  }
+
   const onSubmit = async (data: ReceiptFormData) => {
+    // Check if contact number is provided (WhatsApp flow)
+    if (data.contactNo && data.contactNo.trim() !== '') {
+      openWhatsAppChat(data.contactNo)
+      return
+    }
+
+    // Check if amount is provided (Database storage flow)
+    if (!data.amount || data.amount.trim() === '') {
+      alert('कृपया राशि या संपर्क नंबर दर्ज करें।')
+      return
+    }
+
     setIsLoading(true)
     try {
       const response = await fetch('/api/receipts', {
@@ -194,7 +275,7 @@ export default function ReceiptEntryForm() {
         {/* Amount */}
         <div>
           <label htmlFor="amount" className="block text-sm font-semibold text-gray-900 mb-2">
-            Amount (₹) *
+            Amount (₹) <span className="text-gray-500 text-xs">- OR enter phone number for WhatsApp</span>
           </label>
           <input
             type="number"
@@ -202,29 +283,31 @@ export default function ReceiptEntryForm() {
             min="0"
             {...register('amount')}
             className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 font-medium"
-            placeholder="Enter amount"
+            placeholder="Enter amount (optional if using WhatsApp)"
           />
           {errors.amount && (
             <p className="mt-1 text-sm text-red-600">{errors.amount.message}</p>
           )}
         </div>
 
-        {/* Payment Mode */}
-        <div>
-          <label htmlFor="paymentMode" className="block text-sm font-semibold text-gray-900 mb-2">
-            Payment Mode *
-          </label>
-          <select
-            {...register('paymentMode')}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 font-medium"
-          >
-            <option value="cash" className="text-gray-900 font-medium">Cash</option>
-            <option value="online" className="text-gray-900 font-medium">Online</option>
-          </select>
-          {errors.paymentMode && (
-            <p className="mt-1 text-sm text-red-600">{errors.paymentMode.message}</p>
-          )}
-        </div>
+        {/* Payment Mode - Only show if amount is entered */}
+        {currentAmount && currentAmount.trim() !== '' && (
+          <div>
+            <label htmlFor="paymentMode" className="block text-sm font-semibold text-gray-900 mb-2">
+              Payment Mode *
+            </label>
+            <select
+              {...register('paymentMode')}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 font-medium"
+            >
+              <option value="cash" className="text-gray-900 font-medium">Cash</option>
+              <option value="online" className="text-gray-900 font-medium">Online</option>
+            </select>
+            {errors.paymentMode && (
+              <p className="mt-1 text-sm text-red-600">{errors.paymentMode.message}</p>
+            )}
+          </div>
+        )}
 
         {/* Name */}
         <div>
@@ -242,13 +325,13 @@ export default function ReceiptEntryForm() {
         {/* Contact Number */}
         <div>
           <label htmlFor="contactNo" className="block text-sm font-semibold text-gray-900 mb-2">
-            Contact Number
+            Contact Number <span className="text-green-600 text-xs">📱 (Enter to open WhatsApp)</span>
           </label>
           <input
             type="tel"
             {...register('contactNo')}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 font-medium"
-            placeholder="Auto-populated or enter manually"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 text-gray-900 font-medium"
+            placeholder="Enter phone number for WhatsApp invitation"
           />
         </div>
 
@@ -284,12 +367,12 @@ export default function ReceiptEntryForm() {
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
               </svg>
-              Saving...
+              Processing...
             </>
           ) : (
             <>
               <Save className="h-4 w-4 mr-2" />
-              Save Receipt
+              {currentContactNo && currentContactNo.trim() !== '' ? 'Open WhatsApp' : 'Save Receipt'}
             </>
           )}
         </button>
