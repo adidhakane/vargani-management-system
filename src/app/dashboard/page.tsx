@@ -3,10 +3,14 @@
 import { useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { useSession } from 'next-auth/react'
-import { BarChart3, Download, Edit2, Trash2, Save, X } from 'lucide-react'
+import { BarChart3, Download, Edit2, Trash2, Save, X, TrendingUp, Users, Building, FileText, AlertCircle } from 'lucide-react'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import { getCurrentISTString } from '@/lib/date-utils'
+import { Card, CardHeader, CardContent, CardTitle, CardDescription } from '@/components/ui/Card'
+import { Button } from '@/components/ui/Button'
+import { Input, Select } from '@/components/ui/Input'
+import { Alert, LoadingSpinner, Badge } from '@/components/ui/Common'
 
 interface Receipt {
   id: number
@@ -329,111 +333,138 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="bg-white shadow rounded-lg p-6">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">Data Analysis Dashboard</h1>
-        <p className="text-gray-600 mb-6">
-          Generate reports and analyze collection data by building, date, or identify missing entries.
+    <div className="space-y-8">
+      {/* Header Section */}
+      <div className="text-center">
+        <h1 className="text-4xl font-bold text-gray-900 mb-2">
+          <span className="text-gradient">Analytics Dashboard</span>
+        </h1>
+        <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+          Generate comprehensive reports and analyze collection data with powerful filtering options.
         </p>
+      </div>
 
-        {/* Analysis Form */}
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* Analysis Type */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-900 mb-2">
-                Analysis Type *
-              </label>
-              <select
+      {/* Stats Overview */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <Card hover className="text-center">
+          <CardContent className="pt-6">
+            <div className="inline-flex items-center justify-center w-12 h-12 bg-blue-100 rounded-lg mb-4">
+              <Building className="h-6 w-6 text-blue-600" />
+            </div>
+            <div className="text-2xl font-bold text-gray-900">{buildings.length}</div>
+            <div className="text-sm text-gray-600">Buildings</div>
+          </CardContent>
+        </Card>
+        
+        <Card hover className="text-center">
+          <CardContent className="pt-6">
+            <div className="inline-flex items-center justify-center w-12 h-12 bg-green-100 rounded-lg mb-4">
+              <Users className="h-6 w-6 text-green-600" />
+            </div>
+            <div className="text-2xl font-bold text-gray-900">{allResidents.length}</div>
+            <div className="text-sm text-gray-600">Total Residents</div>
+          </CardContent>
+        </Card>
+
+        <Card hover className="text-center">
+          <CardContent className="pt-6">
+            <div className="inline-flex items-center justify-center w-12 h-12 bg-purple-100 rounded-lg mb-4">
+              <FileText className="h-6 w-6 text-purple-600" />
+            </div>
+            <div className="text-2xl font-bold text-gray-900">{receipts.length}</div>
+            <div className="text-sm text-gray-600">Current Results</div>
+          </CardContent>
+        </Card>
+
+        <Card hover className="text-center">
+          <CardContent className="pt-6">
+            <div className="inline-flex items-center justify-center w-12 h-12 bg-orange-100 rounded-lg mb-4">
+              <TrendingUp className="h-6 w-6 text-orange-600" />
+            </div>
+            <div className="text-2xl font-bold text-green-600">₹{totalAmount.toLocaleString()}</div>
+            <div className="text-sm text-gray-600">Total Amount</div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Analysis Form */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center">
+            <BarChart3 className="h-5 w-5 mr-2" />
+            Generate Analysis Report
+          </CardTitle>
+          <CardDescription>
+            Select your analysis preferences to generate detailed reports with export capabilities.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {/* Analysis Type */}
+              <Select
+                label="Analysis Type"
+                options={[
+                  { value: '', label: 'Select Analysis Type' },
+                  { value: 'date-building', label: 'By Date & Building' },
+                  { value: 'building-only', label: 'By Building Only' },
+                  { value: 'remaining-flats', label: 'Remaining Flats Report' }
+                ]}
                 {...register('analysisType', { required: 'Analysis type is required' })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 font-medium"
-              >
-                <option value="" className="text-gray-500">Select Analysis Type</option>
-                <option value="date-building" className="text-gray-900 font-medium">By Date & Building</option>
-                <option value="building-only" className="text-gray-900 font-medium">By Building Only</option>
-                <option value="remaining-flats" className="text-gray-900 font-medium">Remaining Flats Report</option>
-              </select>
-              {errors.analysisType && (
-                <p className="mt-1 text-sm text-red-600">{errors.analysisType.message}</p>
-              )}
-            </div>
+                error={errors.analysisType?.message}
+              />
 
-            {/* Building Number */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-900 mb-2">
-                Building Number *
-              </label>
-              <select
+              {/* Building Number */}
+              <Select
+                label="Building Number"
+                options={[
+                  { value: '', label: 'Select Building' },
+                  ...buildings.map(building => ({
+                    value: building,
+                    label: `Building ${building}`
+                  }))
+                ]}
                 {...register('buildingNo', { required: 'Building number is required' })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 font-medium"
-              >
-                <option value="" className="text-gray-500">Select Building</option>
-                {buildings.map(building => (
-                  <option key={building} value={building} className="text-gray-900 font-medium">
-                    Building {building}
-                  </option>
-                ))}
-              </select>
-              {errors.buildingNo && (
-                <p className="mt-1 text-sm text-red-600">{errors.buildingNo.message}</p>
-              )}
-            </div>
+                error={errors.buildingNo?.message}
+              />
 
-            {/* Date (only for date-building analysis) */}
-            {analysisType === 'date-building' && (
-              <div>
-                <label className="block text-sm font-semibold text-gray-900 mb-2">
-                  Date *
-                </label>
-                <input
+              {/* Date (conditional) */}
+              {analysisType === 'date-building' && (
+                <Input
                   type="date"
+                  label="Date"
                   {...register('date', { 
                     required: analysisType === 'date-building' ? 'Date is required' : false 
                   })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 font-medium"
+                  error={errors.date?.message}
                 />
-                {errors.date && (
-                  <p className="mt-1 text-sm text-red-600">{errors.date.message}</p>
-                )}
-              </div>
-            )}
-          </div>
-
-          <div className="flex justify-between">
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="inline-flex items-center px-6 py-2 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
-            >
-              {isLoading ? (
-                <>
-                  <svg className="animate-spin -ml-1 mr-3 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Analyzing...
-                </>
-              ) : (
-                <>
-                  <BarChart3 className="h-4 w-4 mr-2" />
-                  Generate Analysis
-                </>
               )}
-            </button>
+            </div>
 
-            {receipts.length > 0 && (
-              <button
-                type="button"
-                onClick={generatePDF}
-                className="inline-flex items-center px-6 py-2 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+            <div className="flex justify-between items-center pt-4 border-t border-gray-200">
+              <Button
+                type="submit"
+                loading={isLoading}
+                icon={<BarChart3 className="h-4 w-4" />}
+                className="px-8"
               >
-                <Download className="h-4 w-4 mr-2" />
-                Export PDF
-              </button>
-            )}
-          </div>
-        </form>
-      </div>
+                {isLoading ? 'Analyzing...' : 'Generate Analysis'}
+              </Button>
+
+              {receipts.length > 0 && (
+                <Button
+                  type="button"
+                  variant="success"
+                  onClick={generatePDF}
+                  icon={<Download className="h-4 w-4" />}
+                >
+                  Export PDF
+                </Button>
+              )}
+            </div>
+          </form>
+        </CardContent>
+      </Card>
 
       {/* Results */}
       {receipts.length > 0 && (
