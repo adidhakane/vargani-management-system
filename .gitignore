@@ -44,3 +44,11 @@ next-env.d.ts
 
 .vercel
 .env*.local
+
+# Resident data files (sensitive information)
+residents-data.csv
+Gopinath_Nagar_Residents_Buildings_4_5_6_7.xlsx
+*.csv
+*.xlsx
+**/residents-data.*
+**/Gopinath_Nagar_*
